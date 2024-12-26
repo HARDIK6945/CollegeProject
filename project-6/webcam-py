@@ -1,0 +1,108 @@
+import csv
+from datetime import datetime
+from ultralytics import YOLO
+import cv2
+import cvzone
+from cvzone.Utils import cornerRect
+import math
+import numpy as np
+import pyttsx3
+import winsound  # Import winsound for beep sound
+
+# Initialize text-to-speech engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)  # Set speech rate
+engine.setProperty('volume', 1.0)  # Set volume
+
+# Initialize video capture
+cap = cv2.VideoCapture(0)
+cap.set(3, 1280)  # Set the width of the frame
+cap.set(4, 720)  # Set the height of the frame
+
+# Load YOLOv8 model
+model = YOLO('yolo-weights\\yolov8n.pt')
+classNames = [
+    "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
+    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
+    "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
+    "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
+    "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+    "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+    "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
+    "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
+    "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
+    "teddy bear", "hair drier", "toothbrush"
+]
+
+# Define the Region of Interest (ROI) for the railway track
+roi = np.array([
+    (100, 500),  # Point 1
+    (200, 400),  # Point 2
+    (1100, 400), # Point 3
+    (1200, 500)  # Point 4
+], np.int32)
+
+# Open the CSV file in append mode and write the header if the file is new
+csv_file = "detections.csv"
+with open(csv_file, "a", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["Timestamp", "Class Name", "Confidence", "Center X", "Center Y"])  # Write header
+
+while True:
+    success, img = cap.read()
+    if not success:
+        print("Failed to capture video. Exiting...")
+        break
+
+    # Run YOLO model on the captured frame
+    results = model(img, stream=True)
+
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            x1, y1, x2, y2 = box.xyxy[0]
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+            # Check if the object is inside the ROI
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2  # Calculate center of the detected box
+            if cv2.pointPolygonTest(roi, (cx, cy), False) >= 0:
+                # Draw a fancy rectangle using cvzone
+                cornerRect(img, (x1, y1, x2 - x1, y2 - y1), l=30, t=5, colorR=(100, 0, 100))
+                conf = math.ceil(box.conf[0] * 100) / 100
+                # Display confidence and class name
+                cls = int(box.cls[0])
+                label = f'{classNames[cls]} {conf}'
+                cvzone.putTextRect(
+                    img,
+                    label,  # Format text with class name and confidence
+                    (max(0, x1), max(35, y1)),  # Ensure coordinates are non-negative
+                    scale=1,  # Text scale
+                    thickness=1  # Text border thickness
+                )
+
+                # Add audio alert for "person" detection
+                if classNames[cls] == "person" and conf > 0.6:
+                    # Beep sound
+                    winsound.Beep(1000, 200)
+                    # Announce the detected class name
+                    engine.say(f"Person detected with confidence {conf}")
+                    engine.runAndWait()
+
+                # Log detection details to CSV
+                with open(csv_file, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([datetime.now(), classNames[cls], conf, cx, cy])
+
+    # Draw the ROI on the frame for visualization
+    cv2.polylines(img, [roi], isClosed=True, color=(0, 255, 0), thickness=2)
+
+    # Display the image with fancy boxes
+    cv2.imshow("Image", img)
+
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+cap.release()
+cv2.destroyAllWindows()
