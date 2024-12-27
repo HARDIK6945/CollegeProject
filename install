@@ -1,0 +1,45 @@
+[33mcommit 1b0ac9dfb68c5e841c7b3236428723fff3a00539[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: HARDIK6945 <raichurahardik231@gmail.com>
+Date:   Fri Dec 27 13:56:13 2024 +0530
+
+    some additional op are taken into consideration
+
+ detections.csv | 8 [32m++++++++[m
+ 1 file changed, 8 insertions(+)
+
+[33mcommit 11e5434dae7dbbe6cf69f073db87f001937ba3f9[m
+Author: HARDIK6945 <raichurahardik231@gmail.com>
+Date:   Thu Dec 26 23:41:42 2024 +0530
+
+    Ignore virtual environment
+
+ .gitignore | 1 [31m-[m
+ 1 file changed, 1 deletion(-)
+
+[33mcommit 19e5d972d5ce63476fc49ae050aaa0b18969c100[m
+Author: HARDIK6945 <raichurahardik231@gmail.com>
+Date:   Thu Dec 26 23:38:00 2024 +0530
+
+    Recreated .gitignore
+
+ .gitignore           | 2 [32m+[m[31m-[m
+ project-6/.gitignore | 1 [32m+[m
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+[33mcommit f369dfa7d658568b3567f35f21a1953236220bed[m
+Author: HARDIK6945 <raichurahardik231@gmail.com>
+Date:   Thu Dec 26 23:31:35 2024 +0530
+
+    Ignore reserved file 'nul'
+
+ .gitignore | 1 [32m+[m
+ 1 file changed, 1 insertion(+)
+
+[33mcommit a06775a3a6807dfd4c3df695273691cae022f1fb[m
+Author: HARDIK6945 <raichurahardik231@gmail.com>
+Date:   Thu Dec 26 23:16:22 2024 +0530
+
+    Enforce consistent line endings
+
+ requirements.txt | 1 [32m+[m
+ 1 file changed, 1 insertion(+)
