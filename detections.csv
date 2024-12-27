@@ -130,3 +130,11 @@ Timestamp,Class Name,Confidence,Center X,Center Y
 2024-12-26 15:37:33.814790,person,0.91,164,457
 2024-12-26 15:37:38.117323,person,0.83,535,439
 2024-12-26 15:37:42.727083,person,0.86,532,401
+Timestamp,Class Name,Confidence,Center X,Center Y
+2024-12-27 13:34:48.348708,person,0.89,827,421
+Timestamp,Class Name,Confidence,Center X,Center Y
+Timestamp,Class Name,Confidence,Center X,Center Y
+2024-12-27 13:46:57.923703,person,0.91,768,403
+2024-12-27 13:47:02.496364,person,0.91,769,406
+2024-12-27 13:47:08.662185,person,0.89,740,400
+2024-12-27 13:47:13.109337,person,0.93,793,484
