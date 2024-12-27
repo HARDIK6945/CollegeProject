@@ -1,1 +1,2 @@
 * text=auto
+yolo-weights/yolov8l.pt filter=lfs diff=lfs merge=lfs -text
