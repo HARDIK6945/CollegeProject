@@ -1,107 +1,128 @@
-import csv
-from datetime import datetime
+from sort import *
 from ultralytics import YOLO
 import cv2
 import cvzone
 from cvzone.Utils import cornerRect
 import math
 import numpy as np
-import pyttsx3
-import winsound  # Import winsound for beep sound
 
-# Initialize text-to-speech engine
-engine = pyttsx3.init()
-engine.setProperty('rate', 150)  # Set speech rate
-engine.setProperty('volume', 1.0)  # Set volume
+# Tracker
+tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
 
 # Initialize video capture
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture("project-6/video/2.mp4")
 cap.set(3, 1280)  # Set the width of the frame
-cap.set(4, 720)  # Set the height of the frame
+cap.set(4, 720)   # Set the height of the frame
+
+# Enable full-screen mode
+cv2.namedWindow("Crowd Detection", cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty("Crowd Detection", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 # Load YOLOv8 model
-model = YOLO('yolo-weights\\yolov8n.pt')
-classNames = [
-    "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
-    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-    "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
-    "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
-    "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
-    "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
-    "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
-    "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
-    "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
-    "teddy bear", "hair drier", "toothbrush"
-]
+model = YOLO('project-6/best.pt')
 
-# Define the Region of Interest (ROI) for the railway track
-roi = np.array([
-    (100, 500),  # Point 1
-    (200, 400),  # Point 2
-    (1100, 400), # Point 3
-    (1200, 500)  # Point 4
-], np.int32)
+# Define class names
+classNames = ['person']  # Replace with actual classes from your trained model
 
-# Open the CSV file in append mode and write the header if the file is new
-csv_file = "detections.csv"
-with open(csv_file, "a", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow(["Timestamp", "Class Name", "Confidence", "Center X", "Center Y"])  # Write header
+# Set to store all unique IDs
+unique_ids = set()
+
+paused = False  # Flag to toggle pause state
 
 while True:
-    success, img = cap.read()
-    if not success:
-        print("Failed to capture video. Exiting...")
-        break
+    if not paused:
+        success, img = cap.read()
+        if not success:
+            break  # Exit loop if frame is not captured
 
-    # Run YOLO model on the captured frame
-    results = model(img, stream=True)
+        detections = np.empty((0, 5))
 
-    for r in results:
-        boxes = r.boxes
-        for box in boxes:
-            x1, y1, x2, y2 = box.xyxy[0]
-            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        # Run YOLO model on the captured frame
+        results = model(img, stream=True)
 
-            # Check if the object is inside the ROI
-            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2  # Calculate center of the detected box
-            if cv2.pointPolygonTest(roi, (cx, cy), False) >= 0:
-                # Draw a fancy rectangle using cvzone
-                cornerRect(img, (x1, y1, x2 - x1, y2 - y1), l=30, t=5, colorR=(100, 0, 100))
+        for r in results:
+            boxes = r.boxes
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0]
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+                # Draw bounding rectangle using cvzone
+                cornerRect(img, (x1, y1, x2 - x1, y2 - y1), l=15, t=2, colorR=(0, 0, 255))  # Red rectangle
+
+                # Confidence of detection
                 conf = math.ceil(box.conf[0] * 100) / 100
-                # Display confidence and class name
+
+                # Class index
                 cls = int(box.cls[0])
-                label = f'{classNames[cls]} {conf}'
-                cvzone.putTextRect(
-                    img,
-                    label,  # Format text with class name and confidence
-                    (max(0, x1), max(35, y1)),  # Ensure coordinates are non-negative
-                    scale=1,  # Text scale
-                    thickness=1  # Text border thickness
-                )
 
-                # Add audio alert for "person" detection
-                if classNames[cls] == "person" and conf > 0.6:
-                    # Beep sound
-                    winsound.Beep(1000, 200)
-                    # Announce the detected class name
-                    engine.say(f"Person detected with confidence {conf}")
-                    engine.runAndWait()
+                # Display small class name and confidence
+                if cls < len(classNames):
+                    cvzone.putTextRect(
+                        img,
+                        f'{classNames[cls]} {conf}',  # Format text
+                        (max(0, x1), max(20, y1 - 10)),  # Position above the rectangle
+                        scale=0.7,  # Small text scale
+                        thickness=1,  # Thin text
+                        colorR=(255, 0, 0)  # White background for text
+                    )
 
-                # Log detection details to CSV
-                with open(csv_file, "a", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow([datetime.now(), classNames[cls], conf, cx, cy])
+                    # Add detection to detections array
+                    currentarray = np.array([x1, y1, x2, y2, conf])
+                    detections = np.vstack((detections, currentarray))
 
-    # Draw the ROI on the frame for visualization
-    cv2.polylines(img, [roi], isClosed=True, color=(0, 255, 0), thickness=2)
+        # Update tracker with detections
+        resultstracker = tracker.update(detections)
 
-    # Display the image with fancy boxes
-    cv2.imshow("Image", img)
+        for result in resultstracker:
+            x1, y1, x2, y2, obj_id = map(int, result)  # Ensure values are integers
 
-    # Break the loop if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+            # Add ID to the set
+            unique_ids.add(obj_id)
+
+            # Draw bounding box for tracked objects
+            cornerRect(img, (x1, y1, x2 - x1, y2 - y1), l=15, t=2, colorR=(0, 255, 0))  # Green for tracked objects
+            cvzone.putTextRect(
+                img,
+                f'ID: {obj_id}',  # Display object ID
+                (x1 + 5, y2 - 10),  # Position inside the box
+                scale=0.7,  # Small text scale
+                thickness=1,  # Thin text
+                colorR=(0, 255, 0)  # Green background for ID text
+            )
+
+        # Display the current number of people
+        cvzone.putTextRect(
+            img,
+            f'Number of People: {len(unique_ids)}',  # Display the count of unique IDs
+            (50, 100),  # Position at the top-left corner
+            scale=1.5,  # Larger text scale for better visibility
+            thickness=2,  # Bold text
+            colorR=(0, 255, 255)  # Yellow text for count
+        )
+
+        # Check for crowd size warning
+        if len(unique_ids) > 5:
+            cvzone.putTextRect(
+                img,
+                "Warning: Large Crowd Detected!",  # Warning message
+                (50, 50),  # Position on the screen
+                scale=2,  # Large text scale for visibility
+                thickness=3,  # Bold text
+                colorR=(0, 0, 255)  # Red warning text
+            )
+
+    # Display the image with bounding boxes, IDs, and warnings
+    cv2.imshow("Crowd Detection", img)
+
+    # Key controls
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):  # Quit the loop
         break
+    elif key == ord('p'):  # Pause or resume the video
+        paused = not paused
+
+# Print all unique IDs at the end
+print("All unique IDs detected:", unique_ids)
 
 # Release resources
 cap.release()
