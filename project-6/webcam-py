@@ -1,10 +1,11 @@
-from sort import *
+from sort import Sort
 from ultralytics import YOLO
 import cv2
 import cvzone
 from cvzone.Utils import cornerRect
 import math
 import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 # Tracker
 tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
@@ -21,7 +22,7 @@ cv2.setWindowProperty("Crowd Detection", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FUL
 # Load YOLOv8 model
 model = YOLO('project-6/best.pt')
 
-# Define class names
+# Define class names (if needed for reference)
 classNames = ['person']  # Replace with actual classes from your trained model
 
 # Set to store all unique IDs
@@ -36,6 +37,7 @@ while True:
             break  # Exit loop if frame is not captured
 
         detections = np.empty((0, 5))
+        current_frame_ids = set()  # To track IDs present in the current frame
 
         # Run YOLO model on the captured frame
         results = model(img, stream=True)
@@ -55,20 +57,9 @@ while True:
                 # Class index
                 cls = int(box.cls[0])
 
-                # Display small class name and confidence
-                if cls < len(classNames):
-                    cvzone.putTextRect(
-                        img,
-                        f'{classNames[cls]} {conf}',  # Format text
-                        (max(0, x1), max(20, y1 - 10)),  # Position above the rectangle
-                        scale=0.7,  # Small text scale
-                        thickness=1,  # Thin text
-                        colorR=(255, 0, 0)  # White background for text
-                    )
-
-                    # Add detection to detections array
-                    currentarray = np.array([x1, y1, x2, y2, conf])
-                    detections = np.vstack((detections, currentarray))
+                # Add detection to detections array
+                currentarray = np.array([x1, y1, x2, y2, conf])
+                detections = np.vstack((detections, currentarray))
 
         # Update tracker with detections
         resultstracker = tracker.update(detections)
@@ -78,19 +69,15 @@ while True:
 
             # Add ID to the set
             unique_ids.add(obj_id)
+            current_frame_ids.add(obj_id)  # Add to current frame's IDs
 
             # Draw bounding box for tracked objects
             cornerRect(img, (x1, y1, x2 - x1, y2 - y1), l=15, t=2, colorR=(0, 255, 0))  # Green for tracked objects
-            cvzone.putTextRect(
-                img,
-                f'ID: {obj_id}',  # Display object ID
-                (x1 + 5, y2 - 10),  # Position inside the box
-                scale=0.7,  # Small text scale
-                thickness=1,  # Thin text
-                colorR=(0, 255, 0)  # Green background for ID text
-            )
 
-        # Display the current number of people
+        # Remove IDs not present in the current frame
+        unique_ids = unique_ids.intersection(current_frame_ids)
+
+        # Display the current number of people (size of unique_ids set)
         cvzone.putTextRect(
             img,
             f'Number of People: {len(unique_ids)}',  # Display the count of unique IDs
@@ -111,7 +98,7 @@ while True:
                 colorR=(0, 0, 255)  # Red warning text
             )
 
-    # Display the image with bounding boxes, IDs, and warnings
+    # Display the image with bounding boxes and warnings (no class or ID displayed)
     cv2.imshow("Crowd Detection", img)
 
     # Key controls
@@ -123,6 +110,24 @@ while True:
 
 # Print all unique IDs at the end
 print("All unique IDs detected:", unique_ids)
+
+# Example for metrics (placeholder for actual ground truth and predictions)
+y_test = []  # Replace with actual ground truth labels
+y_pred = []  # Replace with actual predicted labels
+
+# Assuming y_test and y_pred are filled with actual data
+if y_test and y_pred:
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted')  # Use 'binary' for binary classification
+    recall = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    cm = confusion_matrix(y_test, y_pred)
+
+    print(f"Accuracy: {accuracy}")
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1 Score: {f1}")
+    print("Confusion Matrix:\n", cm)
 
 # Release resources
 cap.release()
